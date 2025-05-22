@@ -2,6 +2,12 @@
 <project version="4">
   <component name="ScalaCompilerConfiguration">
     <option name="separateProdTestSources" value="true" />
-    <profile name="sbt 1" modules="scala-macros,scala-macros.main,scala-macros.test" />
+    <profile name="sbt 1" modules="scala-macros" />
+    <profile name="sbt 2" modules="scala-macros.main,scala-macros.test">
+      <parameters>
+        <parameter value="-Xprint:postInlining" />
+        <parameter value="-Xmax-inlines:100000" />
+      </parameters>
+    </profile>
   </component>
 </project>
