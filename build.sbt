@@ -3,7 +3,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.3.2"
 
 ThisBuild / scalacOptions ++= Seq(
-  "-Xprint:postInlining",
+  "-Xprint:postInlining", //Can see Scala code after the "inline" step
   "-Xmax-inlines:100000"
 )
 
