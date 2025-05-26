@@ -1,6 +1,6 @@
 package macros_usage
 
-import macros.BuildingExpressions.{createDefaultPermissions, describePermissions}
+import macros.BuildingExpressions.*
 
 object BuildingExpressions {
   val defaultPermissions = createDefaultPermissions()
