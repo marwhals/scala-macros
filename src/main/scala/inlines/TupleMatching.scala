@@ -1,6 +1,7 @@
 package inlines
 
-import inlines.tools.Show.Show
+
+import inlines.tools.Show
 
 import scala.compiletime.*
 

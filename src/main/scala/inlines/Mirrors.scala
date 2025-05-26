@@ -1,12 +1,19 @@
 package inlines
 
-import inlines.tools.Show.Show
+
+import inlines.tools.Show
+import inlines.tools.Show.derived
 
 import scala.compiletime.{constValue, constValueTuple, erasedValue, summonInline}
 import scala.deriving.Mirror
 
 // "product"
-case class Person(name: String, age: Int, programmer: Boolean)
+/*
+- Compiler will look for a method "derived" in the Show object
+- Such that it returns a Show[Person]
+- 'derives show' will give us a GIVEN Show[Person]
+*/
+case class Person(name: String, age: Int, programmer: Boolean) derives Show
 
 // "sum"
 enum Permissions {
@@ -32,37 +39,29 @@ object Mirrors {
   // we can list all the cases
   val allCases = constValueTuple[permissionMirror.MirroredElemLabels] // all the cases of the enum as strings, known at compile time
 
-  // auto-derivation for serialisation type class
-  // showTuple[(String, Int, Boolean) , ("name", "age", "programmer")]("Bob", 99, true)
-  // ["name: Bob", "age: 99]
-  private inline def showTuple[E <: Tuple, L <: Tuple](elements: E): List[String] =
-    inline (elements, erasedValue[L]) match { // (("Bob", 99, true), ("name", "age", "programmer"))
-      case (EmptyTuple, EmptyTuple) => List()
-      case (el: (eh *: et), lab: (lh *: lt)) =>
-        val (h *: t) = el // h = "bob", t = (99, true)
-        val label = constValue[lh] // label = "name"
-        val value = summonInline[Show[eh]].show(h) // Show[String].show("Bob")
-
-        ("" + label + ": " + value) :: showTuple[et, lt](t)
-      // "name: Bob" :: showTuple[(Int, Boolean), ("age", "programmer")]((99, true))
-    }
-
-  inline def showCC[A <: Product](using m: Mirror.ProductOf[A]): Show[A] = {
-    new Show[A] {
-      override def show(value: A): String =
-        val valueTuple = Tuple.fromProductTyped(value)
-        val fieldReprs = showTuple[m.MirroredElemTypes, m.MirroredElemLabels](valueTuple)
-        fieldReprs.mkString("{", ",", "}")
-    }
-  }
-
   val masterYoda = Person("Master Yoda", 800, false)
-  val showPerson = showCC[Person]
+  val showPerson = Show.derived[Person]
+  val showPerson_v2 = summon[Show[Person]] // implicit
+  val showPerson_v3 = Person.derived$Show //explicit type class instance, synthesised by the compiler
   val yodaJson = showPerson.show(masterYoda)
 
+  def printThing[A](thing: A)(using Show[A]) =
+    println(summon[Show[A]].show(thing))
+
   def main(a: Array[String]) = {
-    println(yodaJson)
+    println(yodaJson) // <--- Show[Person] passed implicitly here
   }
 }
-
+/**
+Type Class Derivation
+ - Allow the compiler to auto-synthesize type class instances as given values
+ - Requirement: a public ''derived'' method in the companion object
+  - no proper argument list
+  - Show[that type] as return value
+ - Signature and implementation are flexible
+  - Can be inline
+  - Can be used generics (and it usually will)
+  - Can have using clauses
+  - Can be implemented in any way
+*/
 
