@@ -23,7 +23,8 @@ object MacroIntro {
     - those ASTs are manipulated into some other AST, as Expr[B]
     - that final AST is injected into the code (= SPLICED) => a final value is returned
    */
-  inline def firstMacro(number: Int, string: String): String = ${} // ${ AST } = splicing that AST
+  inline def firstMacro(number: Int, string: String): String =
+    ${ firstMacroImpl('number, 'string) } // ${ AST } = splicing that AST
 
   // macro implementation = manipulating ASTs
   // this runs at compile time

@@ -1,5 +1,7 @@
 package macros_usage
 
+import macros.MacroIntro.*
+
 object MacroIntro {
   val firstMacroValue = firstMacro(42, "Scala")
   val secondMacroValue = firstMacro(2 + 3, "Scala") // arguments are computed before the macro expansion
