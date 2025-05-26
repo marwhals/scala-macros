@@ -1,5 +1,7 @@
 package macros_usage
 
+import macros.TreeMatching.demoTreeMatching
+
 object TreeMatching {
   def multiply(x: Int, y: Int) = x * y
 
