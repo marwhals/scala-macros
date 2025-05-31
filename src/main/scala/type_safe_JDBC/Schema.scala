@@ -6,7 +6,7 @@ case class ColumnDescriptor(
                              index: Int,
                              name: String,
                              jdbcType: JDBCType.VL,
-                             nullable: JDBCNullability.VL
+                             nullability: JDBCNullability.VL
                            )
 
 final case class Schema(values: List[ColumnDescriptor])
@@ -19,7 +19,7 @@ object Schema {
       index = i,
       name = getName(metadata, i),
       jdbcType = getType(metadata, i),
-      nullable = getNullable(metadata, i)
+      nullability = getNullable(metadata, i)
     )
 
     Schema(descriptor.toList)

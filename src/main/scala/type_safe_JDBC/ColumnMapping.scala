@@ -44,6 +44,18 @@ object ColumnMapping {
     override def reader: JDBCReader[Result] = existingMapper.reader.toList
   }
 
+  def produceColumnMappingError[T: Type, N: Type, C: Type ](using q: Quotes) = {
+    import q.reflect.*
+    
+    given Printer[TypeRepr] = Printer.TypeReprShortCode
+    
+    val tType = TypeRepr.of[T].show
+    val nType = TypeRepr.of[N].show
+    val cType = TypeRepr.of[C].show
+
+    report.errorAndAbort(s"Failed to summon a given ColumnMapping[$tType, $nType, $cType]")
+  }
+
 }
 
 // val columnMapping = ColumnMapping[JDBCType.TL.Integer, JDBCNullability.TL.NonNullable, "id"]
