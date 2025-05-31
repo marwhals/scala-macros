@@ -45,33 +45,96 @@ object QueryResultDecoder {
 
     (jdbcType, nullability, colType) match {
       case (
-        '[type t <: JDBCType.TL; `t`],
-        '[type n <: JDBCNullability.TL; `n`],
-        '[type c <: String; `c`]
+        '[ type t <: JDBCType.TL; `t`],
+        '[ type n <: JDBCNullability.TL; `n`],
+        '[ type c <: String; `c`]
     ) => // fetch a given ColumnMapping[t,n,c]
-      val mapping = Expr.summon[ColumnMapping[t,n,c]].getOrElse(ColumnMapping.produceColumnMappingError[t,n,c])
-      DescriptorToMapping(descriptor, mapping)
+      val mapping = Expr.summon[ColumnMapping[t, n, c]].getOrElse (ColumnMapping.produceColumnMappingError[t, n, c] )
+      DescriptorToMapping (descriptor, mapping)
     }
   }
 
   // create a QueryResult { the correct refinements } based on all column descriptors and mappings
-  private def makeRefinedType(descriptorToMapping: List[DescriptorToMapping]): Type[?] = ???
+  private def makeRefinedType(descriptorToMappings: List[DescriptorToMapping])(using q: Quotes): Type[?] = {
+    import q.reflect.*
 
-  // fetches all the readers of the correct type so the values can be read correctly into the correct types
-  private def getColumnReaders(descriptorToMapping: List[DescriptorToMapping]): Expr[List[JDBCReader[?]]] = ???
+    val refined = descriptorToMappings.foldLeft(TypeRepr.of[QueryResult]) {
+      case (currentRef, dtm) =>
+        // add a new field to currentRef of the form `val $name: $type`
+        val name = dtm.descriptor.name
+        val typeRepr = dtm.mapping match {
+          case '{ $mapping: ColumnMapping.Aux[_, _, _, colType] } =>
+            TypeRepr.of[colType]
+        }
+        Refinement(currentRef, name, typeRepr)
+    }
+    refined.asType
+  }
+
+  // fetches all readers of the correct type so the values can be read correctly into the correct types
+  private def getColumnReaders(descriptorToMappings: List[DescriptorToMapping])(using Quotes): Expr[List[(String, JDBCReader[?])]] = {
+    val jdbcReaders = descriptorToMappings.map { dtm =>
+      val nameExpr = Expr(dtm.descriptor.name)
+
+      dtm.mapping match {
+        case '{ $mapping: ColumnMapping.Aux[_, _, _, colType] } =>
+          '{ $nameExpr -> $mapping.reader }
+      }
+    }
+    Expr.ofList(jdbcReaders)
+  }
 
   // get the final decoder that can read entire rows into the structural type inferred earlier
-  private def makeDecoder(columnReaders: Expr[List[JDBCReader[?]]], refinedType: Type[?]): Expr[QueryResultDecoder[?]] = ???
+  private def makeDecoder(columnReaders: Expr[List[(String, JDBCReader[?])]], refinedType: Type[?])(using Quotes): Expr[QueryResultDecoder[?]] = {
+    refinedType match {
+      case '[r] =>
+        '{ new QueryResultDecoder[r] {
+          type Result = r
 
-  private def toType(vlType: JDBCType.VL)(using Quotes): Type[? <: JDBCType.TL] = ???
-  private def toType(vlType: JDBCNullability.VL)(using Quotes): Type[? <: JDBCType.TL] = ???
-  private def toType(name: String)(using Quotes): Type[? <: String] = ???
+          override def decode(row: Row): r =
+            QueryResult($columnReaders)(row).asInstanceOf[r]
+        }
+        }
+    }
+  }
+
+  private def toType(vlType: JDBCType.VL)(using q: Quotes): Type[? <: JDBCType.TL] = {
+    import q.reflect.*
+
+    vlType match {
+      case JDBCType.VL.Boolean => Type.of[JDBCType.TL.Boolean]
+      case JDBCType.VL.Double => Type.of[JDBCType.TL.Double]
+      case JDBCType.VL.Integer => Type.of[JDBCType.TL.Integer]
+      case JDBCType.VL.Varchar => Type.of[JDBCType.TL.Varchar]
+      case JDBCType.VL.Array(content) =>
+        val inner = toType(content)
+        inner match {
+          case '[type i <: JDBCType.TL; `i`] =>
+          Type.of[JDBCType.TL.Array[i]]
+        }
+      case JDBCType.VL.NotSupported => Type.of[JDBCType.TL.NotSupported]
+    }
+  }
+
+  private def toType(vlType: JDBCNullability.VL)(using q: Quotes): Type[? <: JDBCNullability.TL] = {
+    import q.reflect.*
+
+    vlType match {
+      case JDBCNullability.VL.NonNullable => Type.of[JDBCNullability.TL.NonNullable]
+      case JDBCNullability.VL.Nullable => Type.of[JDBCNullability.TL.Nullable]
+    }
+  }
+
+  private def toType(value: String)(using q: Quotes): Type[?] = {
+    import q.reflect.*
+
+    ConstantType(StringConstant(value)).asType
+  }
 
   case class DescriptorToMapping(
-                                descriptor: ColumnDescriptor,
-                                mapping: Expr[ColumnMapping[?, ?, ?]]
+                                  descriptor: ColumnDescriptor,
+                                  mapping: Expr[ColumnMapping[?, ?, ?]]
                                 )
-
 
 
 }
