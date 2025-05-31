@@ -3,7 +3,7 @@ package type_safe_JDBC
 import java.sql.{ResultSetMetaData, Types}
 
 case class ColumnDescriptor(
-                             index: String,
+                             index: Int,
                              name: String,
                              jdbcType: JDBCType.VL,
                              nullable: JDBCNullability.VL
@@ -16,7 +16,7 @@ object Schema {
     val descriptor = for {
       i <- 1 to metadata.getColumnCount()
     } yield ColumnDescriptor(
-      index = i.toString,
+      index = i,
       name = getName(metadata, i),
       jdbcType = getType(metadata, i),
       nullable = getNullable(metadata, i)
@@ -42,8 +42,8 @@ object Schema {
 
   private def getNullable(metadata: ResultSetMetaData, i: Int): JDBCNullability.VL =
     metadata.isNullable(i) match {
-      case ResultSetMetaData.columnNullable => JDBCNullability.VL.Nullable
-      case _ => JDBCNullability.VL.Nullable
+      case ResultSetMetaData.columnNoNulls => JDBCNullability.VL.NonNullable
+      case _ => JDBCNullability.VL.Nullable // assuming nullable in all other cases
     }
 
 }
