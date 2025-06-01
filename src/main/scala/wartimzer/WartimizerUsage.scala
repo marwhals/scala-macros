@@ -5,9 +5,9 @@ import Wartimizer.wartimize
 /**
 * - Uncomment to see custom scala compile errors from macros
 */
-
-
 case class Person(name: String, email: String)
+
+case class Programmer(name: String, age: Int, favLanguage: String, gamer: Boolean)
 
 object WartimizerUsage {
 
@@ -43,6 +43,63 @@ object WartimizerUsage {
 
   val combinedCalls = List(1, 2, 3).map(_ + 1).map(_ * 3).map(_.toString + " Scala is great").filter(_.length > 5).headOption
   val optimizedCombinedCalls = wartimize(CollectionOptimizer)(List(1, 2, 3).map(_ + 1).map(_ * 3).map(_.toString + " Scala is great").filter(_.length > 5).headOption)
+
+  val daniel = Programmer("Daniel", 99, "Scala", true)
+  val danielCopy = daniel.copy(name="danielciocirlan").copy(age = 102).copy(favLanguage="Scala 3", gamer=true)
+
+  /**
+   * - Need to parse the abstract syntax tree explicitly
+   */
+  /*
+  {
+  val $2$ =
+    {
+      val $1$ =
+        daniel.copy(
+          name = "danielciocirlan",
+          daniel.copy$default$2,
+          daniel.copy$default$3,
+          daniel.copy$default$4)
+      $1$.copy(
+        $1$.copy$default$1,
+        age = 102,
+        $1$.copy$default$3,
+        $1$.copy$default$4)
+    }
+  $2$.copy(
+    $2$.copy$default$1,
+    $2$.copy$default$2,
+    favLanguage = "Scala 3",
+    gamer = true)
+  }
+
+  - target = original object of the copy chain
+  - target arguments:
+    List(name = "danielciocirlan",
+          daniel.copy$default$2,
+          daniel.copy$default$3,
+          daniel.copy$default$4)
+  - chain arguments
+    List(
+      List(
+        $1$.copy$default$1,
+        age = 102,
+        $1$.copy$default$3,
+        $1$.copy$default$4
+      ),
+      List(
+        $2$.copy$default$1,
+        $2$.copy$default$2,
+        favLanguage = "Scala 3",
+        gamer = true
+      )
+    )
+  - target = original object of the copy chain
+  - target arguments
+
+  - list arguments
+
+   */
 
   def main(a: Array[String]) = {
     println(badPractice)
