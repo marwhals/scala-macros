@@ -54,10 +54,44 @@ object CopyChain extends Wartimization {
     }
 
     object CopyChainArgs {
-      def unapply(term: Term): Option[(Term, List[Term], List[List[Term]])] = {
-        // TODO
-        // parse the AST
-        ???
+      def unapply(term: Term): Option[(Term, List[Term], List[List[Term]])] =
+        term match {
+          // recursive: chain.copy(args)
+          case Block(
+          List(
+          ValDef(localVal, _, Some(CopyChainArgs(target, targetArgs, innerChainArgs))), // final target of the copy call (is computed recursively)
+          otherVals* // local value definitions, may be used in the last copy call
+          ), // value defs
+          Apply(Select(Ident(finalTarget), "copy"), args) // function application
+          ) if localVal == finalTarget =>
+            val localArgs = resolve(args, otherVals)
+            Some((target, targetArgs, innerChainArgs :+ localArgs))
+          // base case: target.copy(arguments)
+          case Apply(Select(target, "copy"), targetArgs) =>
+            Some((target, targetArgs, List())) // no copy chain
+          // 2-chain copy: target.copy(args).copy(args2)
+          case Block(
+          List(intermediateVals*),
+          Apply(Select(target, "copy"), targetArgs)
+          ) =>
+            Some((target, resolve(targetArgs, intermediateVals), List()))
+          case _ => None
+        }
+
+      private def resolve(funcArgs: List[Term], valueDefs: Seq[Statement]): List[Term] = {
+        // map[value name, value expression]
+        val valueExpressions = valueDefs.collect {
+          case ValDef(name, _, Some(expression)) => name -> expression
+        }.toMap
+
+        funcArgs.map {
+          case term@Ident(name) => valueExpressions.getOrElse(name, term)
+          // `age = intermediateVal` becomes `age = 2 + 3`
+          case NamedArg(argName, term@Ident(name)) =>
+            NamedArg(argName, valueExpressions.getOrElse(name, term))
+          // anything else is left intact
+          case term => term
+        }
       }
     }
   }
