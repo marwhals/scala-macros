@@ -12,8 +12,17 @@ object Wartimizer {
                                     block: Expr[A]
                                     )(using q: Quotes): Expr[A] = {
     import q.reflect.*
-    
-    ???
+
+    // get wartimization instances
+    val wartimization = w.valueOrAbort +: ws.valueOrAbort
+    // get tree maps
+    val treeMaps = wartimization.map(_.treeMap)
+    // apply all tree maps one at a time
+    val finalTree = treeMaps.foldLeft(block.asTerm) { (currTree: Tree, treeMap: TreeMap) =>
+      treeMap.transformTree(currTree)(Symbol.spliceOwner)
+    }
+
+    finalTree.asExprOf[A]
   }
     
 }

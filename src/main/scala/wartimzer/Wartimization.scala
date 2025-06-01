@@ -1,6 +1,7 @@
 package wartimzer
 
 import scala.quoted.*
+import scala.reflect.NameTransformer
 
 /*
   - Code processor that will transform code of ONE use-case
@@ -12,10 +13,64 @@ import scala.quoted.*
   before: "Scala is " + Person("Martin Odersky", "martin@gmail.com")
   after: (should not compile)
 
+  1. write the Wartimizer impls => compile the instances
+  2. Wartimizer.wartimize(w1, w2, w3, ...)(myCode)
+    - wartimizeImpl will fetch the Wartimization instances by their NAME form the class path
+    - call their treeMap functions
+    - the treeMaps will run on the 'mycode
+    - will return a new expression
+  3. Continue compiling
+
 */
 
-trait Wartimization {
-  self: Singleton => // all Wartimization instances must be objects, so that they can be referred to as constants
+//self - an instance of Wartimization must be a subtype of singleton
+trait Wartimization { self: Singleton => // all wartimization instances must be objects, so they can be referred to as constants
   def treeMap(using q: Quotes): q.reflect.TreeMap
 }
 
+object Wartimization {
+  given FromExpr[Wartimization] with {
+    /* will fetch the Wartimization object from the classpath
+    *  will fetch the Wartimization object from the classpath by its name
+    * => will use RUNTIME reflaction (!)
+    *
+    * */
+
+    def unapply(x: Expr[Wartimization])(using q: Quotes): Option[Wartimization] = {
+      import q.reflect.*
+      // get the name of the Wartimization instance
+      val typeSymbol = x.asTerm.tpe.typeSymbol
+
+      if (typeSymbol.flags.is(Flags.Module)) { // must check that this Wartimization is an object
+        val fullName = typeSymbol.fullName // fully qualified class name of the object
+        Some(unsafeLoadObject(fullName))
+      } else {
+        report.errorAndAbort(s"The type [${typeSymbol.name}] does not correspond to an object.", x)
+      }
+    }
+
+    private def unsafeLoadObject[A](name: String)(using q: Quotes): A = {
+      import q.reflect.*
+
+      try {
+        val clazz = Class.forName(name)
+        // objects are represented in the JVM as a static field called MODULE$
+        val module = clazz.getField(NameTransformer.MODULE_INSTANCE_NAME)
+        // this field is normally fetched from a class instance, here we don't have one
+        val objectInstance = module.get(null) // the object is static
+        // final value
+        objectInstance.asInstanceOf[A]
+      } catch {
+        case e: Throwable =>
+          report.errorAndAbort(s"""
+            Failed to load class [$name].
+            Make sure that:
+              - it is a top-level object (or nested in another object)
+              - it is defined in a file separate from where this macro is being invoked
+              - it is being referred to directly as the object rather than an alias or val
+          """)
+      }
+    }
+
+  }
+}
